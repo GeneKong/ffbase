@@ -139,7 +139,11 @@ ffmem_copy ffmem_move
 #define ffint64  long long
 #define ffuint64  unsigned long long
 #define ffsize  size_t
+#ifdef FF_WIN
+#define ffssize  int
+#else
 #define ffssize  ssize_t
+#endif
 
 
 #ifdef FF_DEBUG
@@ -244,31 +248,38 @@ Return 0 on error */
 
 /** Swap bytes
 e.g. "0x11223344" <-> "0x44332211" */
+#ifdef _MSC_VER
+#include <stdlib.h>
+#define ffint_bswap16(i)  _byteswap_ushort(i)
+#define ffint_bswap32(i)  _byteswap_ulong(i)
+#define ffint_bswap64(i)  _byteswap_uint64(i)
+#else
 #define ffint_bswap16(i)  __builtin_bswap16(i)
-#define ffint_bswap32(i)  __builtin_bswap32(i)
-#define ffint_bswap64(i)  __builtin_bswap64(i)
+    #define ffint_bswap32(i)  __builtin_bswap32(i)
+    #define ffint_bswap64(i)  __builtin_bswap64(i)
+#endif
 
 #ifdef FF_LITTLE_ENDIAN
-	/** Swap bytes: BE <-> CPU */
-	#define ffint_be_cpu16(i)  __builtin_bswap16(i)
-	#define ffint_be_cpu32(i)  __builtin_bswap32(i)
-	#define ffint_be_cpu64(i)  __builtin_bswap64(i)
+/** Swap bytes: BE <-> CPU */
+#define ffint_be_cpu16(i)  ffint_bswap16(i)
+#define ffint_be_cpu32(i)  ffint_bswap32(i)
+#define ffint_be_cpu64(i)  ffint_bswap64(i)
 
-	/** Swap bytes: LE <-> CPU */
-	#define ffint_le_cpu16(i)  (i)
-	#define ffint_le_cpu32(i)  (i)
-	#define ffint_le_cpu64(i)  (i)
+/** Swap bytes: LE <-> CPU */
+#define ffint_le_cpu16(i)  (i)
+#define ffint_le_cpu32(i)  (i)
+#define ffint_le_cpu64(i)  (i)
 
 #else // FF_BIG_ENDIAN:
-	/** Swap bytes: BE <-> CPU */
-	#define ffint_be_cpu16(i)  (i)
-	#define ffint_be_cpu32(i)  (i)
-	#define ffint_be_cpu64(i)  (i)
+/** Swap bytes: BE <-> CPU */
+    #define ffint_be_cpu16(i)  (i)
+    #define ffint_be_cpu32(i)  (i)
+    #define ffint_be_cpu64(i)  (i)
 
-	/** Swap bytes: LE <-> CPU */
-	#define ffint_le_cpu16(i)  __builtin_bswap16(i)
-	#define ffint_le_cpu32(i)  __builtin_bswap32(i)
-	#define ffint_le_cpu64(i)  __builtin_bswap64(i)
+    /** Swap bytes: LE <-> CPU */
+    #define ffint_le_cpu16(i)  ffint_bswap16(i)
+    #define ffint_le_cpu32(i)  ffint_bswap32(i)
+    #define ffint_le_cpu64(i)  ffint_bswap64(i)
 #endif
 
 #define ffint_le_cpu16_ptr(ptr)  ffint_le_cpu16(*(ffushort*)(ptr))
@@ -288,7 +299,30 @@ static inline ffuint ffint_be_cpu24_ptr(const void *p)
 	return ((ffuint)b[0] << 16) | ((ffuint)b[1] << 8) | (ffuint)b[2];
 }
 
+#ifdef _MSC_VER
+#include <intrin.h>
 
+static inline unsigned int ffbit_find32(unsigned int n) {
+    unsigned long index;
+    return _BitScanReverse(&index, n) ? index + 1 : 0;
+}
+
+static inline unsigned int ffbit_find64(unsigned long long n) {
+    unsigned long index;
+    return _BitScanReverse64(&index, n) ? index + 1 : 0;
+}
+
+static inline unsigned int ffbit_rfind32(unsigned int n) {
+    unsigned long index;
+    return _BitScanForward(&index, n) ? index + 1 : 0;
+}
+
+static inline unsigned int ffbit_rfind64(unsigned long long n) {
+    unsigned long index;
+    return _BitScanForward64(&index, n) ? index + 1 : 0;
+}
+
+#else
 /** Find the most significant 1-bit
 --> 0xABCD
 Return bit position +1;
@@ -316,6 +350,8 @@ static inline ffuint ffbit_rfind64(ffuint64 n)
 {
 	return __builtin_ffsll(n);
 }
+#endif
+
 
 /** Return TRUE if bit is set */
 static inline int ffbit_test32(const ffuint *p, ffuint bit)
@@ -535,20 +571,23 @@ static void* ffmem_align(ffsize size, ffsize align);
 static void ffmem_alignfree(void *ptr);
 
 
-/** Reserve stack buffer */
+#ifdef _MSC_VER
+#define ffmem_stack(size)  _alloca(size)
+#else
 #define ffmem_stack(size)  __builtin_alloca(size)
+#endif
 
 #define FFMEM_STACK_THRESHOLD  4096
 
 /** Reserve stack or allocate a heap buffer */
 #define _ffmem_alloc_stackorheap(size) \
-	((size) < FFMEM_STACK_THRESHOLD) ? __builtin_alloca(size) : ffmem_alloc(size)
+	((size) < FFMEM_STACK_THRESHOLD) ? ffmem_stack(size) : ffmem_alloc(size)
 
 #define _ffmem_free_stackorheap(ptr, size) \
-({ \
+do { \
 	if ((size) >= FFMEM_STACK_THRESHOLD) \
 		ffmem_free(ptr); \
-})
+} while(0)
 
 #endif
 

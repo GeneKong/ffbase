@@ -446,7 +446,7 @@ static inline int ffutf_bom(const void *src, ffsize *len)
 
 static inline ffssize ffutf8_from_cp(char *dst, ffsize cap, const char *src, ffsize len, ffuint flags)
 {
-	const ffushort U_REPL = 0xFFFD;
+    #define U_REPL (0xFFFD)
 
 	/* Unicode code-points for characters 0x80-0xff */
 	static const ffushort codes[][128] = {
@@ -486,7 +486,7 @@ static inline ffssize ffutf8_from_cp(char *dst, ffsize cap, const char *src, ffs
 		0x00F0, 0x00F1, 0x00F2, 0x00F3, 0x00F4, 0x00F5, 0x00F6, 0x00F7, 0x00F8, 0x00F9, 0x00FA, 0x00FB, 0x00FC, 0x00FD, 0x00FE, 0x00FF,
 		},
 	};
-
+    #undef U_REPL
 	flags -= _FFUNICODE_CP_BEGIN;
 	FF_ASSERT(flags < FF_COUNT(codes));
 
